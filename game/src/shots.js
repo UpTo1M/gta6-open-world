@@ -1,153 +1,93 @@
-// SOLMARA — the screenshot scenes behind ?shot=start|drive|chase|mission. Each
-// one plays the real rules forward from a fresh world for a fixed number of
-// steps, steered by a simple autopilot, so the frame is what real play looks
-// like and the same seed always gives the same frame.
-import { PLACES, STEP } from './config.js';
-import { SCREEN_PLAY, SCREEN_TITLE } from './render.js';
+// Screenshot scenes for SOLMARA. The page reads ?shot=<name>&seed=<n> and
+// this module puts the world into that exact state, so screenshots/ are
+// real renders of the game's own code — the same scenes shots.json lists.
 
-const START_SECONDS = 5;
-const DRIVE_SECONDS = 2.4;
-const CHASE_SECONDS = 2.2;
-const MISSION_SECONDS = 2.0;
+import { PLACES } from './config.js';
+import { beginMission } from './missions.js';
+import { playerCar } from './world.js';
 
-function clamp(v, lo, hi) {
-  return v < lo ? lo : v > hi ? hi : v;
-}
-
-function angDiff(a, b) {
-  let d = (a - b) % (Math.PI * 2);
-  if (d > Math.PI) d -= Math.PI * 2;
-  if (d < -Math.PI) d += Math.PI * 2;
-  return d;
-}
-
-function emptyCtl() {
-  return {
-    up: false, down: false, left: false, right: false, run: false, handbrake: false,
-    enterPressed: false, punchPressed: false, fireHeld: false, reloadPressed: false,
-    toggleWeapon: false, switchWeapon: null, nitroHeld: false, aimX: 0, aimY: 0,
-  };
-}
-
-/**
- * Drive straight along one avenue toward `dirY` (+1 south, -1 north), staying
- * in lane and easing around a car ahead. The shot is taken mid-straight, at
- * speed, before the car reaches the avenue's end.
- */
-function driveCtl(world, avenueX, dirY) {
-  const ctl = emptyCtl();
-  const car = world.state.player.car;
-  if (!car) return ctl;
-  const speed = Math.abs(car.vf);
-  const lookahead = 70 + speed * 0.45;
-  let blocker = null;
-  let blockerAhead = Infinity;
-  for (const other of world.state.cars) {
-    if (other === car || other.dead) continue;
-    const dx = other.x - car.x;
-    const dy = other.y - car.y;
-    const ahead = dx * Math.cos(car.angle) + dy * Math.sin(car.angle);
-    const side = -dx * Math.sin(car.angle) + dy * Math.cos(car.angle);
-    if (ahead > 0 && ahead < lookahead && Math.abs(side) < 30 && ahead < blockerAhead) {
-      blockerAhead = ahead;
-      blocker = side;
+// Each scene returns the camera centre the renderer should frame.
+export function setupShot(w, name) {
+  const p = w.player;
+  switch (name) {
+    case 'start':
+      // Title screen over the living city.
+      w.ui.title = true;
+      return { x: 1160, y: 960 };
+    case 'drive': {
+      // Kai in a Comet GT, mid-drive down an avenue.
+      w.ui.title = false;
+      const car = w.cars.find((c) => c.type === 'comet' && c.driver === 'parked')
+        || w.cars.find((c) => c.driver === 'parked');
+      if (car) {
+        car.driver = 'player';
+        car.x = 1120;
+        car.y = 900;
+        car.angle = -Math.PI / 2;
+        car.speed = 200;
+        p.carId = car.id;
+        p.onFoot = false;
+      }
+      p.money = 2450;
+      p.jobsDone = 3;
+      return { x: 1120, y: 800 };
     }
+    case 'chase': {
+      // Wanted 4: helicopter overhead, roadblocks ahead, cruisers closing in.
+      w.ui.title = false;
+      const car = w.cars.find((c) => c.type === 'muscle' && c.driver === 'parked')
+        || w.cars.find((c) => c.driver === 'parked');
+      if (car) {
+        car.driver = 'player';
+        car.x = 1120;
+        car.y = 1000;
+        car.angle = -Math.PI / 2;
+        car.speed = 240;
+        p.carId = car.id;
+        p.onFoot = false;
+      }
+      p.heat = 72;
+      p.lastCrimeAt = w.time;
+      p.money = 5300;
+      p.jobsDone = 6;
+      p.weapon = 'shotgun';
+      p.drawn = true;
+      // A cruiser right behind, a roadblock ahead.
+      const chase = w.cars.find((c) => c.driver === 'police' && c.type === 'cruiser');
+      if (chase) {
+        chase.x = 1120;
+        chase.y = 1150;
+        chase.angle = -Math.PI / 2;
+        chase.speed = 220;
+      }
+      return { x: 1120, y: 960 };
+    }
+    case 'mission': {
+      // Mid-job: The Ambush, crew ahead, objective marker on the alley.
+      w.ui.title = false;
+      beginMission(w, 2);
+      w.ui.card = null;
+      w.mission.started = true;
+      p.x = 1120;
+      p.y = 1300;
+      p.angle = -Math.PI / 2;
+      p.onFoot = true;
+      p.drawn = true;
+      p.money = 1250;
+      p.jobsDone = 2;
+      // Spawn the ambush crew in view.
+      for (let i = 0; i < 3; i++) {
+        w.enemies.push({
+          x: 1060 + i * 60, y: 1420, angle: Math.PI / 2, hp: 100,
+          state: 'combat', fireT: 1, mission: true, speed: 125, flash: 0,
+        });
+      }
+      return { x: 1120, y: 1380 };
+    }
+    default:
+      w.ui.title = false;
+      return { x: p.x, y: p.y };
   }
-  // Steer toward the avenue's centre line, and around a blocker if there is one.
-  let targetX = avenueX;
-  if (blocker !== null) targetX = avenueX + (blocker >= 0 ? -40 : 40);
-  const aheadY = car.y + dirY * 220;
-  const want = Math.atan2(aheadY - car.y, targetX - car.x);
-  const steer = clamp(angDiff(want, car.angle) * 2.2, -1, 1);
-  ctl.left = steer < -0.12;
-  ctl.right = steer > 0.12;
-  // Pass a slow car instead of queuing behind it: only brake when it is
-  // right in front of the nose.
-  ctl.up = !(blocker !== null && blockerAhead < 32);
-  ctl.down = !!(blocker !== null && blockerAhead < 32);
-  return ctl;
 }
 
-/** Fight the nearest living enemy: aim, fire, and keep moving. */
-function combatCtl(world) {
-  const ctl = emptyCtl();
-  const p = world.state.player;
-  let best = null;
-  let bestD = Infinity;
-  for (const e of world.state.enemies) {
-    if (e.dead) continue;
-    const d = Math.hypot(e.x - p.x, e.y - p.y);
-    if (d < bestD) { bestD = d; best = e; }
-  }
-  if (best) {
-    ctl.aimX = best.x;
-    ctl.aimY = best.y;
-    ctl.fireHeld = bestD < 340;
-    // Strafe sideways so the frame has motion.
-    const a = Math.atan2(best.y - p.y, best.x - p.x) + Math.PI / 2;
-    ctl.left = Math.cos(a) < -0.3;
-    ctl.right = Math.cos(a) > 0.3;
-    ctl.up = Math.sin(a) < -0.3;
-    ctl.down = Math.sin(a) > 0.3;
-  }
-  return ctl;
-}
-
-/**
- * Set `world` to the named scene and return the screen to draw over it.
- * start: the title over a living city. drive: the Getaway timed run in the
- * Comet GT, the clock ticking, the mission card still up. chase: three stars,
- * police on the tail. mission: the finale at the Docks, six Kovac crew
- * closing in.
- */
-export function stageShot(name, world) {
-  world.reset();
-  const s = world.state;
-  if (name === 'drive') {
-    // The Getaway, mid-run: the package is in hand, 75 seconds on the clock,
-    // the Comet GT at speed down the avenue toward the Docks. The frame is
-    // caught early, while the car is still mid-city — run it all the way to
-    // the Docks and the south edge of the city leaves the bottom of the
-    // frame empty.
-    world.startMissionAt(4, 2);
-    world.putPlayerInCar('sport', 2080, 1120, Math.PI / 2);
-    for (let i = 0; i < 1.2 / STEP; i += 1) {
-      world.step(STEP, driveCtl(world, 2080, 1));
-    }
-    return { screen: SCREEN_PLAY };
-  }
-  if (name === 'chase') {
-    world.suppressMissions();
-    world.putPlayerInCar('sport', 1120, 420, Math.PI / 2);
-    world.setWanted(3);
-    world.spawnPoliceCar();
-    world.spawnPoliceCar();
-    world.spawnPoliceCar();
-    // Straight down the avenue, police on the tail, mid-city when the frame lands.
-    for (let i = 0; i < CHASE_SECONDS / STEP; i += 1) {
-      world.step(STEP, driveCtl(world, 1120, 1));
-    }
-    return { screen: SCREEN_PLAY };
-  }
-  if (name === 'mission') {
-    // The finale: six Kovac crew at the Docks, gun out, rivals closing in.
-    // The player stands a little north of the Docks so the frame stays
-    // inside the city — at the Docks themselves the south edge leaves the
-    // bottom of the frame empty.
-    world.startMissionAt(6, 1);
-    world.teleportPlayer(PLACES.docks.x - 80, PLACES.docks.y - 120);
-    s.player.armed = true;
-    // Two seconds in the firefight is still going (a couple of rivals down,
-    // the rest closing in); any longer and the job is over and the heat arrives.
-    for (let i = 0; i < MISSION_SECONDS / STEP; i += 1) {
-      world.step(STEP, combatCtl(world));
-    }
-    world.clearHeat();
-    return { screen: SCREEN_PLAY };
-  }
-  // start (and anything else): the title over a living city.
-  for (let i = 0; i < START_SECONDS / STEP; i += 1) {
-    world.step(STEP, emptyCtl());
-  }
-  return { screen: SCREEN_TITLE };
-}
+export const SHOT_NAMES = ['start', 'drive', 'chase', 'mission'];
