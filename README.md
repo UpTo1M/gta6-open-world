@@ -34,15 +34,15 @@ then open http://localhost:8080), or just open `game/index.html`.
 | X | Nitro boost (while driving, once fitted at the garage) |
 | C | Cycle the radio station (while driving) |
 | G | Vera's Garage — buy armor, engine, nitro (near the garage) |
-| P | Pause (S — save there) · M — mute |
+| P | Pause · M — mute |
 
 ## The game
 
 - **A city to explore on foot and by car.** Solmara is a deterministic grid
   city (2,560 × 1,920): avenues and streets, blocks with alleys, two parks,
-  a beach and ocean on the east edge, a pier with a lighthouse, a market, a
-  bank, a marina with moored boats, a hospital and the Docks. A seeded RNG
-  lays it out the same every run.
+  a plaza fountain, a beach and ocean on the east edge, a pier with a
+  lighthouse, a market, a bank, a marina with moored boats, a hospital and
+  the Docks. A seeded RNG lays it out the same every run.
 - **Traffic and pedestrians.** 20 cars follow the roads, turn at
   intersections, slow for the car ahead and respawn near you. 34 pedestrians
   walk the sidewalks and flee gunfire and fast cars.
@@ -64,8 +64,8 @@ then open http://localhost:8080), or just open `game/index.html`.
   run home). $12,100 in all. Every job opens with a briefing card and
   closes with a payout card. Objectives show on the HUD with a step
   counter, a live distance, a pulsing marker, a minimap marker and a
-  screen-edge waypoint arrow. Completing a job pays out, autosaves, and
-  opens the next.
+  screen-edge waypoint. Completing a job pays out, autosaves, and opens
+  the next.
 - **Street races.** *The Harbor Sprint* puts two rival racers on the road
   with you — Rico in a red Comet GT and a second driver in a Muscle V8 —
   chasing the same three checkpoints (Market, Pier, Strip) against an
@@ -100,55 +100,26 @@ then open http://localhost:8080), or just open `game/index.html`.
   racers, pedestrians, named places, district labels and the mission marker.
 - **Start screen and save.** A title screen with a living city behind it, a
   job board showing every mission's state, Continue from a save, and
-  autosave on every completed job (localStorage, `solmara.save.v3` — v2
-  saves cannot load into v3). Best fortune is kept too.
+  autosave on every completed job (localStorage, `solmara.save.v3`). Best
+  fortune is kept too.
 - **Polish.** A camera that zooms out with speed and shakes on impacts,
   skid marks, particles, pickup sparkles, screen shake, a hurt vignette,
   and WebAudio synthesis throughout — engine hum, sirens, gunshots,
   jingles and a city hum, all generated, no audio files.
 
-## What changed in v3
+## What changed in v4
 
-- Three new jobs: the street race *The Harbor Sprint* (Rico and a second
-  rival, three checkpoints, 80 seconds), the five-star vault job *Air
-  Support* (a police helicopter overhead on the escape), and the eight-enemy
-  finale *The King's Gambit* (ten jobs, $12,100 in all).
-- Street races with rival AI cars that drive the checkpoint route; a rival
-  finishing first restarts the job.
-- Three districts (Harbor, St. Mara, the Docks) with standing that rises as
-  you finish work there, shown on the HUD and the minimap.
-- Police escalation: roadblocks at 3 stars, a helicopter with a searchlight
-  at 4–5 stars that pins the heat while it is overhead.
-- Weapon wheel (hold Q, pick 1 / 2 / 3): pistol, SMG (Runner rank), shotgun
-  (Wheelman rank), each with its own damage, rate, range and ammo.
-- Respect ranks (Street → Runner → Wheelman → King of Solmara), three radio
-  stations (SOL FM, GARAGE ROCK, DOCKS BASS — C to cycle while driving),
-  and Vera's Garage (G near the garage): armor, engine tune, nitro on X.
-- Save format grew (upgrades, standing, weapon, earnings) — the save key is
-  now `solmara.save.v3`.
-- Fixed: the minimap mission marker crashed the frame on race steps (no
-  single place to point at); it now points at the next checkpoint. Fixed:
-  the nitro boost was clamped away by the driving model every frame; the
-  boost now raises the top speed while it burns.
-
-## What changed in v2
-
-- Three new jobs: the timed Getaway, the multi-drop Courier Run, and the
-  six-enemy finale Kovac's Revenge (seven jobs, $6,700 in all).
-- Mission briefing and payout cards, a live objective tracker (step, distance,
-  countdown), hit flashes, pickup sparkles, a wanted vignette, a job board
-  on the title screen, and named places on the minimap.
-- Two new vehicles (Muscle V8, Pickup), more traffic (20 cars) and more
-  pedestrians (34), a plaza fountain, a lighthouse with a sweeping beam,
-  moored boats and beach palms.
-- Fixed: the mission Comet GT, a parked van and the garage ammo pickup used
-  to spawn inside buildings where they could not be reached; they now sit
-  on roads. Busted mid-job no longer leaves the old crew standing next to
-  a fresh one. Loading a save resumes the job at its saved step. Cops who
-  lose you walk off instead of standing around. If the Comet GT is wrecked
-  before its job is done, Vera sends another one.
-- `serve.ts` is now in the repo: `node serve.ts`, then open
-  http://localhost:8080.
+- Rebuilt fresh from scratch in a single recorded session: every game file
+  rewritten by hand, same ten jobs and all v3 systems (races, districts,
+  roadblocks and helicopter, weapon wheel, respect ranks, radio, garage),
+  with the same save key `solmara.save.v3`.
+- Simpler, flatter simulation: one tick function, one story engine, no
+  import cycles — the whole game also runs headless in Node, and the
+  screenshot scenes are deterministic from a seed.
+- Fixed: the garage shop keys no longer fight the weapon wheel (digits buy
+  only while the shop is open); the minimap mission marker now points at
+  the next race checkpoint instead of crashing on race steps; nitro now
+  raises top speed while it burns instead of being clamped away.
 
 ## Files
 
