@@ -1,4 +1,10 @@
-// SOLMARA — a make.fun gta6-01 entry (Node 22, standard library only).
+// SOLMARA v3 — a make.fun gta6-01 entry (Node 22, standard library only).
+//
+// v3 adds the missing top-entry beats to the v2 game: street races against
+// rival cars, three districts with standing, police roadblocks and a
+// helicopter at high wanted levels, a weapon wheel (pistol / SMG / shotgun),
+// respect ranks, three radio stations, garage upgrades, and three new story
+// jobs — ten jobs in all.
 //
 // The game is this directory's game/ folder: plain static files a desktop
 // browser loads offline. game/index.html opens it, and every file it loads
@@ -13,7 +19,7 @@
 //
 // Serve the game itself with `node serve.ts`, then open http://localhost:8080.
 
-import { cpSync, existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildDossier } from './vendor/makefun-game.ts';
@@ -26,11 +32,32 @@ const out = process.env.MAKEFUN_OUTPUT_DIR ?? '/output';
 if (!existsSync(join(here, 'game', 'index.html'))) {
   throw new Error('game/index.html is missing — nothing to hand in');
 }
+// The scorer caps game/index.html at 1 MiB; a page past it is refused.
+if (statSync(join(here, 'game', 'index.html')).size > 1048576) {
+  throw new Error('game/index.html is over the 1 MiB cap — nothing to hand in');
+}
 const shotNames = existsSync(join(here, 'screenshots'))
   ? readdirSync(join(here, 'screenshots')).filter((n) => !n.startsWith('.'))
   : [];
 if (shotNames.length < 3 || shotNames.length > 4) {
   throw new Error(`expected 3 or 4 screenshots, found ${shotNames.length}`);
+}
+// The scorer refuses any screenshot over 256 KiB; catch one here, with its
+// name, instead of handing in an entry the scorer would refuse outright.
+for (const name of shotNames) {
+  const size = statSync(join(here, 'screenshots', name)).size;
+  if (size > 262144) {
+    throw new Error(`screenshots/${name} is ${size} bytes — over the 256 KiB cap, re-render it smaller`);
+  }
+}
+// The screenshots must be the ones shots.json lists: a stale or renamed
+// render would hand the judge a frame that does not match the scene list.
+if (existsSync(join(here, 'shots.json'))) {
+  const listed = JSON.parse(readFileSync(join(here, 'shots.json'), 'utf8')).map((s) => s.name).sort();
+  const found = [...shotNames].sort();
+  if (JSON.stringify(listed) !== JSON.stringify(found)) {
+    throw new Error(`screenshots/ (${found.join(', ')}) does not match shots.json (${listed.join(', ')})`);
+  }
 }
 
 mkdirSync(out, { recursive: true });
