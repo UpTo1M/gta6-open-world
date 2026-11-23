@@ -25,7 +25,7 @@ function emptyCtl() {
   return {
     up: false, down: false, left: false, right: false, run: false, handbrake: false,
     enterPressed: false, punchPressed: false, fireHeld: false, reloadPressed: false,
-    toggleWeapon: false, aimX: 0, aimY: 0,
+    toggleWeapon: false, switchWeapon: null, nitroHeld: false, aimX: 0, aimY: 0,
   };
 }
 
@@ -95,20 +95,24 @@ function combatCtl(world) {
 
 /**
  * Set `world` to the named scene and return the screen to draw over it.
- * start: the title over a living city. drive: a run up the avenue in the
- * Comet GT, mission one on the HUD. chase: three stars, police on the tail.
- * mission: the plaza ambush, gun out, rivals closing in.
+ * start: the title over a living city. drive: the Getaway timed run in the
+ * Comet GT, the clock ticking, the mission card still up. chase: three stars,
+ * police on the tail. mission: the finale at the Docks, six Kovac crew
+ * closing in.
  */
 export function stageShot(name, world) {
   world.reset();
   const s = world.state;
   if (name === 'drive') {
-    world.startMissionAt(0, 0);
-    world.putPlayerInCar('sport', 800, 1350, -Math.PI / 2);
-    // Straight up the avenue, past the market: the frame catches the car at
-    // speed with the mission marker ahead.
-    for (let i = 0; i < DRIVE_SECONDS / STEP; i += 1) {
-      world.step(STEP, driveCtl(world, 800, -1));
+    // The Getaway, mid-run: the package is in hand, 75 seconds on the clock,
+    // the Comet GT at speed down the avenue toward the Docks. The frame is
+    // caught early, while the car is still mid-city — run it all the way to
+    // the Docks and the south edge of the city leaves the bottom of the
+    // frame empty.
+    world.startMissionAt(4, 2);
+    world.putPlayerInCar('sport', 2080, 1120, Math.PI / 2);
+    for (let i = 0; i < 1.2 / STEP; i += 1) {
+      world.step(STEP, driveCtl(world, 2080, 1));
     }
     return { screen: SCREEN_PLAY };
   }
@@ -126,11 +130,15 @@ export function stageShot(name, world) {
     return { screen: SCREEN_PLAY };
   }
   if (name === 'mission') {
-    world.startMissionAt(2, 1);
-    world.teleportPlayer(PLACES.plaza.x - 80, PLACES.plaza.y + 90);
+    // The finale: six Kovac crew at the Docks, gun out, rivals closing in.
+    // The player stands a little north of the Docks so the frame stays
+    // inside the city — at the Docks themselves the south edge leaves the
+    // bottom of the frame empty.
+    world.startMissionAt(6, 1);
+    world.teleportPlayer(PLACES.docks.x - 80, PLACES.docks.y - 120);
     s.player.armed = true;
-    // Two seconds in the firefight is still going (two rivals down, two
-    // closing in); any longer and the job is over and the heat arrives.
+    // Two seconds in the firefight is still going (a couple of rivals down,
+    // the rest closing in); any longer and the job is over and the heat arrives.
     for (let i = 0; i < MISSION_SECONDS / STEP; i += 1) {
       world.step(STEP, combatCtl(world));
     }

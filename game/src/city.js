@@ -61,7 +61,10 @@ export function buildCity(random) {
       }
       // One horizontal alley through the block's middle, buildings above and below.
       const midY = (rect.y0 + rect.y1) / 2;
-      const alleyHalf = 23;
+      // The mid-block alley is wide enough for a car to pass without
+      // scraping both walls: a car's collision circles are 11 units, so
+      // the alley needs to be well wider than 22 plus room to cut a corner.
+      const alleyHalf = 38;
       const bw = rect.x1 - rect.x0;
       const topH = Math.max(40, midY - alleyHalf - rect.y0 - 14);
       const botH = Math.max(40, rect.y1 - (midY + alleyHalf) - 14);
@@ -85,8 +88,24 @@ export function buildCity(random) {
 
   // The pier at the marina, reaching into the water.
   const pier = { x: PLACES.marina.x - 10, y: PLACES.marina.y - 60, w: 120, h: 20 };
+  // A fountain in the middle of Sunset Plaza's park — the one solid landmark.
+  // (The plaza mission marker sits at the park's corner, so the fountain never
+  // blocks an objective.)
+  const circles = [{ x: 1280, y: 1280, r: 34 }];
+  // Palm trees along the beach.
+  const palms = [];
+  for (let i = 0; i < 10; i += 1) {
+    palms.push({ x: 2452 + (i % 2) * 12, y: 140 + i * 170, r: 13 });
+  }
+  // Boats moored in the marina water, east of the pier.
+  const boats = [];
+  for (let i = 0; i < 5; i += 1) {
+    boats.push({ x: 2532 + (i % 2) * 14, y: 300 + i * 260, angle: (i % 2 ? 0.4 : -0.3) });
+  }
+  // A lighthouse at the end of the pier.
+  const lighthouse = { x: pier.x + pier.w - 8, y: pier.y + pier.h / 2 };
 
-  return { buildings, trees, parks, water, beach, pier };
+  return { buildings, trees, parks, water, beach, pier, circles, palms, boats, lighthouse };
 }
 
 /** True when the circle at (x, y) with radius r hits a building, a tree or the water. */
@@ -99,6 +118,10 @@ export function isBlocked(city, x, y, r) {
   for (let i = 0; i < city.buildings.length; i += 1) {
     const b = city.buildings[i];
     if (x + r > b.x && x - r < b.x + b.w && y + r > b.y && y - r < b.y + b.h) return true;
+  }
+  // Solid round landmarks (the plaza fountain).
+  for (const c of city.circles || []) {
+    if (Math.hypot(x - c.x, y - c.y) < c.r + r) return true;
   }
   return false;
 }
@@ -120,6 +143,16 @@ export function resolveCircle(city, p, r) {
       const d = Math.sqrt(d2) || 0.001;
       p.x = cx + (dx / d) * r;
       p.y = cy + (dy / d) * r;
+      moved = true;
+    }
+  }
+  for (const c of city.circles || []) {
+    const dx = p.x - c.x;
+    const dy = p.y - c.y;
+    const d = Math.hypot(dx, dy) || 0.001;
+    if (d < c.r + r) {
+      p.x = c.x + (dx / d) * (c.r + r);
+      p.y = c.y + (dy / d) * (c.r + r);
       moved = true;
     }
   }

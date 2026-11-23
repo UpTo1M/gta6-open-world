@@ -2,6 +2,8 @@
 // an engine hum that follows speed, a two-tone police siren, gunshots,
 // punches, pickups, mission jingles and a quiet city hum. Everything runs
 // through one master gain so M can mute it all.
+import { RADIO_STATIONS } from './config.js';
+
 export function createAudio() {
   let ctx = null;
   let master = null;
@@ -15,6 +17,11 @@ export function createAudio() {
   let sirenTimer = 0;
   let muted = false;
   let unlocked = false;
+  // Radio: three switchable synth stations, driven by an 8th-note step
+  // sequencer. Each station is an 8-step bass line and lead line.
+  let station = 0;
+  let radioStep = 0;
+  let radioTimer = 0;
 
   function ensure() {
     if (ctx) return true;
@@ -150,6 +157,28 @@ export function createAudio() {
     hurt() { tone(180, 0.18, 'sawtooth', 0.2); },
     steal() { tone(440, 0.08, 'square', 0.15); tone(587, 0.12, 'square', 0.15, 0.08); },
     busted() { tone(392, 0.3, 'triangle', 0.25); tone(311, 0.5, 'triangle', 0.25, 0.28); },
+    /** The radio plays while driving. Call every frame with dt. */
+    radioTick(dt, driving) {
+      if (!ctx || muted || !driving) { radioTimer = 0; return; }
+      const st = RADIO_STATIONS[station] || RADIO_STATIONS[0];
+      const stepDur = 60 / st.bpm / 2; // 8th notes
+      radioTimer += dt;
+      while (radioTimer >= stepDur) {
+        radioTimer -= stepDur;
+        const bass = st.bass[radioStep % st.bass.length];
+        const lead = st.lead[radioStep % st.lead.length];
+        if (bass) tone(bass, 0.22, 'triangle', 0.13);
+        if (lead) tone(lead, 0.16, st.wave, 0.055);
+        radioStep = (radioStep + 1) % 8;
+      }
+    },
+    cycleStation() {
+      station = (station + 1) % RADIO_STATIONS.length;
+      radioStep = 0;
+      radioTimer = 0;
+      return RADIO_STATIONS[station].name;
+    },
+    stationName() { return RADIO_STATIONS[station].name; },
     get unlocked() { return unlocked; },
   };
 }
